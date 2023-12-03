@@ -6,6 +6,7 @@ import io
 import numpy as np
 import random
 import time
+import logging
 
 
 class GPT:
@@ -79,6 +80,7 @@ class GPT:
         for data in response.iter_lines():
             data = data.decode("utf-8")
             if data == "data: [DONE]":
+                logging.info(f"prompt: {prompt} , message: {message} , history: {json.dumps(chat_history,ensure_ascii=False)}")
                 break
             if data:
                 resp = json.loads(data.strip("data:"))

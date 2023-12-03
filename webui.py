@@ -8,7 +8,9 @@ import requests
 from gpt import GPT
 from tts import TTS
 from dotenv import load_dotenv
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 def run():
     if not os.path.exists(".cache/"):
