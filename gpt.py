@@ -1,20 +1,22 @@
-import os
-import requests
-import json
-import gradio as gr
 import io
-import numpy as np
+import json
+import logging
+import os
 import random
 import time
-import logging
+
+import gradio as gr
+import numpy as np
+import requests
 
 
 class GPT:
-    def __init__(self, api_key,end_point):
-        self.api_key = api_key
-        self.end_point=end_point
-        self.chatbot = gr.Chatbot(label="GPT-4", height=700)
+    def __init__(self, config, proxies):
+        self.endpoint = config['endpoint']
+        self.key = config['key']
+        self.chatbot = gr.Chatbot(label="GPT", height=700)
         self.msg = gr.Textbox(label="ChatBox")
+        self.proxies = proxies
 
     def load(self, app):
         with gr.Row():
@@ -30,7 +32,8 @@ class GPT:
                     value="You are an AI assistant that helps people find information.",
                     lines=5,
                 )
-                clear = gr.ClearButton([self.msg, self.chatbot], value="Clear History")
+                clear = gr.ClearButton(
+                    [self.msg, self.chatbot], value="Clear History")
             with gr.Column(scale=3):
                 self.chatbot.render()
                 self.msg.render()
@@ -55,15 +58,20 @@ class GPT:
         for history in chat_history:
             format_messages.append({"role": "user", "content": history[0]})
             if history[1]:
-                format_messages.append({"role": "assistant", "content": history[1]})
+                format_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": history[1]
+                    }
+                )
         format_messages.append({"role": "user", "content": message})
 
         # https://learn.microsoft.com/en-us/azure/ai-services/openai/quickstart?source=recommendations&tabs=command-line
         response = requests.post(
-            url=f"https://{self.end_point}/openai/deployments/gpt4/chat/completions?api-version=2023-07-01-preview",
+            url=f"{self.endpoint}",
             headers={
                 "Content-Type": "application/json",
-                "api-key": self.api_key,
+                "api-key": self.key,
             },
             json={
                 "messages": format_messages,
@@ -73,6 +81,7 @@ class GPT:
                 "stream": True,
             },
             stream=True,
+            proxies=self.proxies,
         )
 
         chat_history[-1][1] = ""
@@ -80,9 +89,12 @@ class GPT:
         for data in response.iter_lines():
             data = data.decode("utf-8")
             if data == "data: [DONE]":
-                logging.info(f"prompt: {prompt} , message: {message} , history: {json.dumps(chat_history,ensure_ascii=False)}")
+                logging.info(
+                    f"prompt: {prompt} , message: {message} , history: {json.dumps(chat_history,ensure_ascii=False)}")
                 break
             if data:
+                logging.info(
+                    f"data: {data}")
                 resp = json.loads(data.strip("data:"))
                 if resp["choices"] and resp["choices"][0]["delta"].get("content"):
                     chat_history[-1][1] += resp["choices"][0]["delta"]["content"]

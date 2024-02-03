@@ -1,48 +1,73 @@
-import io
+import logging
 import os
 
 import gradio as gr
-import numpy as np
-import requests
+import toml
 
 from gpt import GPT
 from tts import TTS
-from dotenv import load_dotenv
-import logging
 
 logging.basicConfig(level=logging.INFO)
+
 
 def run():
     if not os.path.exists(".cache/"):
         os.mkdir(".cache/")
-        
-    tts_tab = TTS(
-        speech_key=os.environ.get('AZURE_SPEECH_KEY', ""), 
-        end_point=os.environ.get('AZURE_SPEECH_ENDPOINT', "")
-    )
-    gpt_tab = GPT(
-        api_key=os.environ.get('AZURE_GPT_KEY', ""),
-        end_point=os.environ.get('AZURE_GPT_ENDPOINT', "")
-    )
+
+    config = toml.load('config.toml')
+
+    proxy = config['global']['proxy_server']
+    if proxy:
+        proxies = {
+            'http': proxy,
+            'https': proxy
+        }
+    else:
+        proxies = {}
+
+    tabs = []
+
+    if config['gpt']:
+        for cfg in config['gpt']:
+            gpt = GPT(
+                config=cfg,
+                proxies=proxies
+            )
+            tabs.append({
+                'name': cfg['name'],
+                'tab': gpt
+            })
+
+    if config['tts']:
+        for cfg in config['tts']:
+            tts = TTS(
+                config=cfg,
+                proxies=proxies
+            )
+            tabs.append({
+                'name': cfg['name'],
+                'tab': tts
+            })
 
     with gr.Blocks() as app:
-        with gr.Tab("Azure GPT-4"):
-            gpt_tab.load(app)
-        with gr.Tab("Azure TTS"):
-            tts_tab.load(app)
+        for tab in tabs:
+            with gr.Tab(tab['name']):
+                tab['tab'].load(app)
 
     app.queue()
 
-    auth_list = os.environ.get('GRADIO_AUTH_LIST', "")
-    
+    server_name = config['global']['server_name']
+    server_port = config['global']['server_port']
+    auth_list = config['global']['auth_list']
+
     app.launch(
-        server_name=os.environ.get('GRADIO_SERVER_NAME', "172.17.0.1"),
-        server_port=int(os.environ.get('GRADIO_SERVER_PORT', '8888')),
+        server_name=server_name,
+        server_port=int(server_port),
         share=False,
-        auth=[(item.split(':')[0],item.split(':')[1]) for item in filter(None,auth_list.split(";"))],
+        auth=[(item.split(':')[0], item.split(':')[1])
+              for item in filter(None, auth_list.split(";"))],
     )
 
 
 if __name__ == "__main__":
-    load_dotenv()
     run()

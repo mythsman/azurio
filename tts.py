@@ -8,9 +8,10 @@ from scipy.io.wavfile import write, read
 
 
 class TTS:
-    def __init__(self, speech_key, end_point):
-        self.speech_key = speech_key
-        self.end_point = end_point
+    def __init__(self, config, proxies):
+        self.speech_key = config['key']
+        self.end_point = config['endpoint']
+        self.proxies = proxies
 
         speech_list = self.__get_speech_list()
 
@@ -48,9 +49,22 @@ class TTS:
                     label="Gender",
                     interactive=True,
                 )
-                locale = gr.Dropdown(choices=[], label="Locale", interactive=True)
-                name = gr.Dropdown(choices=[], label="Name", interactive=True)
-                style = gr.Dropdown(choices=[], label="Style", interactive=True)
+                locale = gr.Dropdown(
+                    choices=[],
+                    label="Locale",
+                    interactive=True
+                )
+                name = gr.Dropdown(
+                    choices=[],
+                    label="Name",
+                    interactive=True
+                )
+                style = gr.Dropdown(
+                    choices=[],
+                    label="Style",
+                    interactive=True
+                )
+
             with gr.Column(scale=3):
                 text = gr.TextArea(label="Input Text", lines=4)
                 btn = gr.Button("Generate")
@@ -72,15 +86,17 @@ class TTS:
 
     def __get_speech_list(self):
         cache_file = ".cache/tts_speech_list.json"
-        
+
         if not os.path.exists(cache_file):
             response = requests.get(
-                url=f"https://{self.end_point}/cognitiveservices/voices/list",
+                url=f"{self.end_point}/voices/list",
                 headers={"Ocp-Apim-Subscription-Key": self.speech_key},
+                proxies=self.proxies,
             )
             with open(cache_file, "w") as writer:
                 json_data = response.json()
-                writer.write(json.dumps(json_data, indent=2, ensure_ascii=False))
+                writer.write(json.dumps(
+                    json_data, indent=2, ensure_ascii=False))
         with open(cache_file, "r") as reader:
             return json.loads(reader.read())
 
@@ -93,13 +109,14 @@ class TTS:
 
         data = f"<speak version='1.0' xml:lang='{locale}'  xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts'><voice xml:lang='{locale}' xml:gender='{gender}' name='{name}'>{style_text}</voice></speak>"
         response = requests.post(
-            url=f"https://{self.end_point}/cognitiveservices/v1",
+            url=f"{self.end_point}/v1",
             headers={
                 "Ocp-Apim-Subscription-Key": self.speech_key,
                 "X-Microsoft-OutputFormat": "riff-24khz-16bit-mono-pcm",
                 "Content-Type": "application/ssml+xml",
             },
             data=data.encode("utf-8"),
+            proxies=self.proxies,
         )
         return response.content
 

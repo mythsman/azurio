@@ -4,7 +4,7 @@ WORKDIR /srv
 
 COPY requirements.txt /srv/requirements.txt
 
-RUN pip install --upgrade pip && pip install -r /srv/requirements.txt && rm -rf .cache/pip
+RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install -r /srv/requirements.txt
 
 COPY *.py /srv/
 
